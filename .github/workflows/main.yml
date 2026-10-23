@@ -66,6 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     strategy:
+      fail-fast: false
       matrix:
         lucee: ${{ fromJSON(needs.setup.outputs.matrix) }}
 
