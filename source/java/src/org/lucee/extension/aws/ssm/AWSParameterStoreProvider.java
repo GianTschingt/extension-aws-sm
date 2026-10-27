@@ -83,7 +83,8 @@ public class AWSParameterStoreProvider implements SecretProvider {
 
 		// timeout
 		timeout = cast.toLongValue(properties.get("timeout", null), 0L);
-		if (timeout > 0L)
+		// 0: no cache, > 0: cached for [timeout] milliseconds, < 0: cached until refresh
+		if (timeout != 0L)
 			cache = new ConcurrentHashMap<>();
 
 		// checkEnviroment
@@ -139,12 +140,10 @@ public class AWSParameterStoreProvider implements SecretProvider {
 
 		if (timeout != 0) {
 			Reference<Val> ref = cache.get(parameterName);
-			if (ref != null) {
-				Val val = ref.get();
-
-				if (timeout < 0 || val.created + timeout > System.currentTimeMillis())
-					return val.value;
-			}
+			// a soft reference can be cleared by the garbage collector, this is a cache miss
+			Val val = ref == null ? null : ref.get();
+			if (val != null && (timeout < 0 || val.created + timeout > System.currentTimeMillis()))
+				return val.value;
 		}
 
 		String value = ParameterStoreReceiver.getParameter(null, parameterName, withDecryption, region, accessKeyId,
