@@ -35,22 +35,24 @@ public class ParameterStoreReceiver {
 			String accessKeyId, String secretKey, String endpoint, boolean checkEnvVarAndSystemProWhenArgNotProvided,
 			Log log) throws PageException {
 
-		SsmClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
-				checkEnvVarAndSystemProWhenArgNotProvided, log);
+		// the client holds an HTTP connection pool and threads, it needs to be closed after use
+		try (SsmClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
+				checkEnvVarAndSystemProWhenArgNotProvided, log)) {
 
-		try {
-			GetParameterRequest request = GetParameterRequest.builder().name(parameterName)
-					.withDecryption(withDecryption).build();
+			try {
+				GetParameterRequest request = GetParameterRequest.builder().name(parameterName)
+						.withDecryption(withDecryption).build();
 
-			GetParameterResponse response = client.getParameter(request);
+				GetParameterResponse response = client.getParameter(request);
 
-			return response.parameter().value();
-		} catch (ParameterNotFoundException e) {
-			throw CFMLEngineFactory.getInstance().getExceptionUtil()
-					.createApplicationException("Parameter [" + parameterName + "] not found in AWS Parameter Store");
-		} catch (Exception e) {
-			throw CFMLEngineFactory.getInstance().getExceptionUtil().createApplicationException(
-					"Error retrieving parameter [" + parameterName + "]: " + e.getMessage());
+				return response.parameter().value();
+			} catch (ParameterNotFoundException e) {
+				throw CFMLEngineFactory.getInstance().getExceptionUtil()
+						.createApplicationException("Parameter [" + parameterName + "] not found in AWS Parameter Store");
+			} catch (Exception e) {
+				throw CFMLEngineFactory.getInstance().getExceptionUtil().createApplicationException(
+						"Error retrieving parameter [" + parameterName + "]: " + e.getMessage());
+			}
 		}
 	}
 
@@ -58,24 +60,26 @@ public class ParameterStoreReceiver {
 			String region, String accessKeyId, String secretKey, String endpoint,
 			boolean checkEnvVarAndSystemProWhenArgNotProvided, Log log) throws PageException {
 
-		SsmClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
-				checkEnvVarAndSystemProWhenArgNotProvided, log);
+		// the client holds an HTTP connection pool and threads, it needs to be closed after use
+		try (SsmClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
+				checkEnvVarAndSystemProWhenArgNotProvided, log)) {
 
-		try {
-			PutParameterRequest.Builder requestBuilder = PutParameterRequest.builder().name(parameterName).value(value)
-					.overwrite(true);
+			try {
+				PutParameterRequest.Builder requestBuilder = PutParameterRequest.builder().name(parameterName).value(value)
+						.overwrite(true);
 
-			if (withEncryption) {
-				requestBuilder.type(ParameterType.SECURE_STRING);
-			} else {
-				requestBuilder.type(ParameterType.STRING);
+				if (withEncryption) {
+					requestBuilder.type(ParameterType.SECURE_STRING);
+				} else {
+					requestBuilder.type(ParameterType.STRING);
+				}
+
+				client.putParameter(requestBuilder.build());
+				CommonsUtil.info(log, "set parameter [" + parameterName + "]");
+			} catch (Exception e) {
+				throw CFMLEngineFactory.getInstance().getExceptionUtil()
+						.createApplicationException("Error setting parameter [" + parameterName + "]: " + e.getMessage());
 			}
-
-			client.putParameter(requestBuilder.build());
-			CommonsUtil.info(log, "set parameter [" + parameterName + "]");
-		} catch (Exception e) {
-			throw CFMLEngineFactory.getInstance().getExceptionUtil()
-					.createApplicationException("Error setting parameter [" + parameterName + "]: " + e.getMessage());
 		}
 	}
 
@@ -83,20 +87,22 @@ public class ParameterStoreReceiver {
 			String secretKey, String endpoint, boolean checkEnvVarAndSystemProWhenArgNotProvided, Log log)
 			throws PageException {
 
-		SsmClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
-				checkEnvVarAndSystemProWhenArgNotProvided, log);
+		// the client holds an HTTP connection pool and threads, it needs to be closed after use
+		try (SsmClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
+				checkEnvVarAndSystemProWhenArgNotProvided, log)) {
 
-		try {
-			DeleteParameterRequest request = DeleteParameterRequest.builder().name(parameterName).build();
+			try {
+				DeleteParameterRequest request = DeleteParameterRequest.builder().name(parameterName).build();
 
-			client.deleteParameter(request);
-			CommonsUtil.info(log, "deleted parameter [" + parameterName + "]");
-		} catch (ParameterNotFoundException e) {
-			throw CFMLEngineFactory.getInstance().getExceptionUtil()
-					.createApplicationException("Parameter [" + parameterName + "] not found in AWS Parameter Store");
-		} catch (Exception e) {
-			throw CFMLEngineFactory.getInstance().getExceptionUtil()
-					.createApplicationException("Error deleting parameter [" + parameterName + "]: " + e.getMessage());
+				client.deleteParameter(request);
+				CommonsUtil.info(log, "deleted parameter [" + parameterName + "]");
+			} catch (ParameterNotFoundException e) {
+				throw CFMLEngineFactory.getInstance().getExceptionUtil()
+						.createApplicationException("Parameter [" + parameterName + "] not found in AWS Parameter Store");
+			} catch (Exception e) {
+				throw CFMLEngineFactory.getInstance().getExceptionUtil()
+						.createApplicationException("Error deleting parameter [" + parameterName + "]: " + e.getMessage());
+			}
 		}
 	}
 
@@ -104,38 +110,40 @@ public class ParameterStoreReceiver {
 			String secretKey, String endpoint, boolean checkEnvVarAndSystemProWhenArgNotProvided, Log log)
 			throws PageException {
 
-		SsmClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
-				checkEnvVarAndSystemProWhenArgNotProvided, log);
+		// the client holds an HTTP connection pool and threads, it needs to be closed after use
+		try (SsmClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
+				checkEnvVarAndSystemProWhenArgNotProvided, log)) {
 
-		List<String> names = new ArrayList<>();
-		String nextToken = null;
+			List<String> names = new ArrayList<>();
+			String nextToken = null;
 
-		try {
-			do {
-				DescribeParametersRequest.Builder requestBuilder = DescribeParametersRequest.builder();
+			try {
+				do {
+					DescribeParametersRequest.Builder requestBuilder = DescribeParametersRequest.builder();
 
-				if (!Util.isEmpty(pathPrefix, true)) {
-					requestBuilder.parameterFilters(ParameterStringFilter.builder().key("Name").option("BeginsWith")
-							.values(pathPrefix).build());
-				}
+					if (!Util.isEmpty(pathPrefix, true)) {
+						requestBuilder.parameterFilters(ParameterStringFilter.builder().key("Name").option("BeginsWith")
+								.values(pathPrefix).build());
+					}
 
-				if (nextToken != null) {
-					requestBuilder.nextToken(nextToken);
-				}
+					if (nextToken != null) {
+						requestBuilder.nextToken(nextToken);
+					}
 
-				DescribeParametersResponse response = client.describeParameters(requestBuilder.build());
+					DescribeParametersResponse response = client.describeParameters(requestBuilder.build());
 
-				for (ParameterMetadata param : response.parameters()) {
-					names.add(param.name());
-				}
+					for (ParameterMetadata param : response.parameters()) {
+						names.add(param.name());
+					}
 
-				nextToken = response.nextToken();
-			} while (nextToken != null);
+					nextToken = response.nextToken();
+				} while (nextToken != null);
 
-			return names;
-		} catch (Exception e) {
-			throw CFMLEngineFactory.getInstance().getExceptionUtil()
-					.createApplicationException("Error listing parameters: " + e.getMessage());
+				return names;
+			} catch (Exception e) {
+				throw CFMLEngineFactory.getInstance().getExceptionUtil()
+						.createApplicationException("Error listing parameters: " + e.getMessage());
+			}
 		}
 	}
 
