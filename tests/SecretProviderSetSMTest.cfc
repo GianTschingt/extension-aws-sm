@@ -1,16 +1,13 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="aws-sm" {
 
 	function afterAll() {
-		// Clean up test secrets
-		try {
-			SecretProviderRemove("test-set-secret", "sm");
-		} catch (any e) {}
-		try {
-			SecretProviderRemove("test-set-boolean", "sm");
-		} catch (any e) {}
-		try {
-			SecretProviderRemove("test-set-integer", "sm");
-		} catch (any e) {}
+		// clean up what the tests created, only the keys that still exist
+		var existing = SecretProviderListNames("sm");
+		for (var name in [ "test-set-secret", "test-set-boolean", "test-set-integer" ]) {
+			if (arrayFind(existing, name)) {
+				SecretProviderRemove(name, "sm");
+			}
+		}
 	}
 
 	function run(testResults, testBox) {

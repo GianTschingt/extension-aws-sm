@@ -1,16 +1,13 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="aws-sm" {
 
 	function afterAll() {
-		// Clean up test parameters
-		try {
-			SecretProviderRemove("test-set-param", "ps");
-		} catch (any e) {}
-		try {
-			SecretProviderRemove("test-set-bool-param", "ps");
-		} catch (any e) {}
-		try {
-			SecretProviderRemove("test-set-int-param", "ps");
-		} catch (any e) {}
+		// clean up what the tests created, only the keys that still exist
+		var existing = SecretProviderListNames("ps");
+		for (var name in [ "test-set-param", "test-set-bool-param", "test-set-int-param" ]) {
+			if (arrayFind(existing, name)) {
+				SecretProviderRemove(name, "ps");
+			}
+		}
 	}
 
 	function run(testResults, testBox) {

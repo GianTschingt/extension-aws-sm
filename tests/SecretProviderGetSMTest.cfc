@@ -38,13 +38,21 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="aws-sm" {
 			});
 
 			it("returns lazy reference when resolve is false", function() {
-				var result = SecretProviderGet(key: variables.testSecretName, name: "sm", resolve: false);
-				expect(result).toBeString();
+				var result = SecretProviderGet(key: variables.testSecretSimple, name: "sm", resolve: false);
+				expect(result & "").toBe("test-value");
+			});
+
+			it("does not read the secret before the lazy reference is used", function() {
+				// a missing secret only fails when the reference is used
+				var result = SecretProviderGet(key: "non-existent-secret-12345", name: "sm", resolve: false);
+				expect(function() {
+					var value = result & "";
+				}).toThrow();
 			});
 
 			it("resolves immediately when resolve is true", function() {
-				var result = SecretProviderGet(key: variables.testSecretName, name: "sm", resolve: true);
-				expect(result).toBeString();
+				var result = SecretProviderGet(key: variables.testSecretSimple, name: "sm", resolve: true);
+				expect(result & "").toBe("test-value");
 			});
 
 			it("throws exception for non-existent secret", function() {
