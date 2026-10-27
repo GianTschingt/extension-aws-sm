@@ -38,9 +38,15 @@ public class SecretReciever {
 	public static String getSecret(PageContext pc, String secretName, String staging, String region, String accessKeyId,
 			String secretKey, String endpoint, boolean checkEnvVarAndSystemProWhenArgNotProvided, Log log)
 			throws PageException {
-		SecretsManagerClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
-				checkEnvVarAndSystemProWhenArgNotProvided, log);
+		// the client holds an HTTP connection pool and threads, it needs to be closed after use
+		try (SecretsManagerClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
+				checkEnvVarAndSystemProWhenArgNotProvided, log)) {
+			return getSecret(client, secretName, staging);
+		}
+	}
 
+	private static String getSecret(SecretsManagerClient client, String secretName, String staging)
+			throws PageException {
 		GetSecretValueRequest getSecretValueRequest = GetSecretValueRequest.builder().secretId(secretName)
 				.versionStage(staging).build();
 
@@ -66,71 +72,70 @@ public class SecretReciever {
 	public static void setSecret(PageContext pc, String secretName, String secretValue, String region,
 			String accessKeyId, String secretKey, String endpoint, boolean checkEnvVarAndSystemProWhenArgNotProvided,
 			Log log) throws PageException {
-		SecretsManagerClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
-				checkEnvVarAndSystemProWhenArgNotProvided, log);
+		try (SecretsManagerClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
+				checkEnvVarAndSystemProWhenArgNotProvided, log)) {
+			try {
+				// Try to update existing secret
+				PutSecretValueRequest putRequest = PutSecretValueRequest.builder().secretId(secretName)
+						.secretString(secretValue).build();
 
-		try {
-			// Try to update existing secret
-			PutSecretValueRequest putRequest = PutSecretValueRequest.builder().secretId(secretName)
-					.secretString(secretValue).build();
+				client.putSecretValue(putRequest);
+				CommonsUtil.info(log, "updated secret [" + secretName + "]");
+			} catch (ResourceNotFoundException e) {
+				// Secret doesn't exist, create it
+				CreateSecretRequest createRequest = CreateSecretRequest.builder().name(secretName)
+						.secretString(secretValue).build();
 
-			client.putSecretValue(putRequest);
-			CommonsUtil.info(log, "updated secret [" + secretName + "]");
-		} catch (ResourceNotFoundException e) {
-			// Secret doesn't exist, create it
-			CreateSecretRequest createRequest = CreateSecretRequest.builder().name(secretName).secretString(secretValue)
-					.build();
-
-			client.createSecret(createRequest);
-			CommonsUtil.info(log, "created secret [" + secretName + "]");
+				client.createSecret(createRequest);
+				CommonsUtil.info(log, "created secret [" + secretName + "]");
+			}
 		}
 	}
 
 	public static List<String> listSecretNames(PageContext pc, String region, String accessKeyId, String secretKey,
 			String endpoint, boolean checkEnvVarAndSystemProWhenArgNotProvided, Log log) throws PageException {
-		SecretsManagerClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
-				checkEnvVarAndSystemProWhenArgNotProvided, log);
+		try (SecretsManagerClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
+				checkEnvVarAndSystemProWhenArgNotProvided, log)) {
+			List<String> names = new ArrayList<>();
+			String nextToken = null;
 
-		List<String> names = new ArrayList<>();
-		String nextToken = null;
+			do {
+				ListSecretsRequest.Builder requestBuilder = ListSecretsRequest.builder();
+				if (nextToken != null) {
+					requestBuilder.nextToken(nextToken);
+				}
 
-		do {
-			ListSecretsRequest.Builder requestBuilder = ListSecretsRequest.builder();
-			if (nextToken != null) {
-				requestBuilder.nextToken(nextToken);
-			}
+				ListSecretsResponse response = client.listSecrets(requestBuilder.build());
 
-			ListSecretsResponse response = client.listSecrets(requestBuilder.build());
+				for (SecretListEntry entry : response.secretList()) {
+					names.add(entry.name());
+				}
 
-			for (SecretListEntry entry : response.secretList()) {
-				names.add(entry.name());
-			}
+				nextToken = response.nextToken();
+			} while (nextToken != null);
 
-			nextToken = response.nextToken();
-		} while (nextToken != null);
-
-		return names;
+			return names;
+		}
 	}
 
 	public static void removeSecret(PageContext pc, String secretName, String region, String accessKeyId,
 			String secretKey, String endpoint, boolean checkEnvVarAndSystemProWhenArgNotProvided, boolean forceDelete,
 			Log log) throws PageException {
-		// verify the secret exists (LocalStack may not error on delete of unknown secrets)
-		getSecret(pc, secretName, AWSCURRENT, region, accessKeyId, secretKey, endpoint,
-				checkEnvVarAndSystemProWhenArgNotProvided, log);
+		try (SecretsManagerClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
+				checkEnvVarAndSystemProWhenArgNotProvided, log)) {
+			// verify the secret exists (LocalStack may not error on delete of unknown secrets)
+			getSecret(client, secretName, AWSCURRENT);
 
-		SecretsManagerClient client = buildClient(pc, region, accessKeyId, secretKey, endpoint,
-				checkEnvVarAndSystemProWhenArgNotProvided, log);
+			DeleteSecretRequest.Builder requestBuilder = DeleteSecretRequest.builder().secretId(secretName);
 
-		DeleteSecretRequest.Builder requestBuilder = DeleteSecretRequest.builder().secretId(secretName);
+			if (forceDelete) {
+				// Immediately delete without recovery window
+				requestBuilder.forceDeleteWithoutRecovery(true);
+			}
 
-		if (forceDelete) {
-			// Immediately delete without recovery window
-			requestBuilder.forceDeleteWithoutRecovery(true);
+			client.deleteSecret(requestBuilder.build());
+			CommonsUtil.info(log, "deleted secret [" + secretName + "]" + (forceDelete ? " (force)" : ""));
 		}
-
-		client.deleteSecret(requestBuilder.build());
-		CommonsUtil.info(log, "deleted secret [" + secretName + "]" + (forceDelete ? " (force)" : ""));
 	}
 
 	private static SecretsManagerClient buildClient(PageContext pc, String region, String accessKeyId, String secretKey,
