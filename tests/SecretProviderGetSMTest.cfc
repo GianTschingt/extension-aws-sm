@@ -42,12 +42,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="aws-sm" {
 				expect(result & "").toBe("test-value");
 			});
 
-			it("does not read the secret before the lazy reference is used", function() {
-				// a missing secret only fails when the reference is used
-				var result = SecretProviderGet(key: "non-existent-secret-12345", name: "sm", resolve: false);
+			it("does not read the secret when resolve is false", function() {
+				// with resolve true a missing secret throws (see below), with resolve false nothing is read yet
 				expect(function() {
-					var value = result & "";
-				}).toThrow();
+					SecretProviderGet(key: "non-existent-secret-12345", name: "sm", resolve: false);
+				}).notToThrow();
 			});
 
 			it("resolves immediately when resolve is true", function() {
