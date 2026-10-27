@@ -38,13 +38,20 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="aws-sm" {
 			});
 
 			it("returns lazy reference when resolve is false", function() {
-				var result = SecretProviderGet(key: variables.testParameterName, name: "ps", resolve: false);
-				expect(result).toBeString();
+				var result = SecretProviderGet(key: variables.testParameterSimple, name: "ps", resolve: false);
+				expect(result & "").toBe("test-value");
+			});
+
+			it("does not read the parameter when resolve is false", function() {
+				// with resolve true a missing parameter throws (see below), with resolve false nothing is read yet
+				expect(function() {
+					SecretProviderGet(key: "non-existent-param-12345", name: "ps", resolve: false);
+				}).notToThrow();
 			});
 
 			it("resolves immediately when resolve is true", function() {
-				var result = SecretProviderGet(key: variables.testParameterName, name: "ps", resolve: true);
-				expect(result).toBeString();
+				var result = SecretProviderGet(key: variables.testParameterSimple, name: "ps", resolve: true);
+				expect(result & "").toBe("test-value");
 			});
 
 			it("throws exception for non-existent parameter", function() {

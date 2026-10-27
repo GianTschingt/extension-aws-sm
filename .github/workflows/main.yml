@@ -114,6 +114,30 @@ jobs:
             --type String \
             --region us-east-1
 
+          # nested JSON, a binary secret, a SecureString and a parameter below a path (pathPrefix)
+          aws --endpoint-url=http://localhost:4566 secretsmanager create-secret \
+            --name "test-nested" \
+            --secret-string '{"db":{"user":"nested-user","port":5432}}' \
+            --region us-east-1
+
+          printf 'binary-value' > "$RUNNER_TEMP/binary-secret.bin"
+          aws --endpoint-url=http://localhost:4566 secretsmanager create-secret \
+            --name "binary-secret" \
+            --secret-binary "fileb://$RUNNER_TEMP/binary-secret.bin" \
+            --region us-east-1
+
+          aws --endpoint-url=http://localhost:4566 ssm put-parameter \
+            --name "secure-parameter" \
+            --value 'secure-value' \
+            --type SecureString \
+            --region us-east-1
+
+          aws --endpoint-url=http://localhost:4566 ssm put-parameter \
+            --name "/lucee-test/app/db-password" \
+            --value 'prefixed-value' \
+            --type String \
+            --region us-east-1
+
           echo "Done seeding."
         env:
           AWS_ACCESS_KEY_ID: test
@@ -200,6 +224,28 @@ jobs:
                   "endpoint": "http://localhost:4566",
                   "jsonTraversal": true,
                   "timeout": 5000
+                }
+              },
+              "smRaw": {
+                "class": "org.lucee.extension.aws.sm.AWSSecretManagerProvider",
+                "maven": "org.lucee:aws-sm:$VERSION",
+                "custom": {
+                  "accessKeyId": "test",
+                  "secretKey": "test",
+                  "region": "us-east-1",
+                  "endpoint": "http://localhost:4566",
+                  "jsonTraversal": false
+                }
+              },
+              "psPrefix": {
+                "class": "org.lucee.extension.aws.ssm.AWSParameterStoreProvider",
+                "maven": "org.lucee:aws-sm:$VERSION",
+                "custom": {
+                  "accessKeyId": "test",
+                  "secretKey": "test",
+                  "region": "us-east-1",
+                  "endpoint": "http://localhost:4566",
+                  "pathPrefix": "/lucee-test/app"
                 }
               }
             }

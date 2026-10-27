@@ -63,9 +63,25 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="aws-sm" {
 				expect(structCount(result)).toBeGT(0);
 			});
 
-			it("first provider takes precedence for duplicate keys", function() {
+			it("contains the keys of all providers", function() {
 				var result = SecretProviderList();
-				expect(result).toBeStruct();
+				expect(structKeyExists(result, "mysecret")).toBeTrue();
+				expect(structKeyExists(result, "myparameter")).toBeTrue();
+			});
+
+			it("lists a key that exists in several providers once, with the value of one of them", function() {
+				var key = "list-duplicate-#createUUID()#";
+				SecretProviderSet(key, "sm-value", "sm");
+				SecretProviderSet(key, "ps-value", "ps");
+				try {
+					var result = SecretProviderList();
+					expect(structKeyExists(result, key)).toBeTrue();
+					expect(arrayFind([ "sm-value", "ps-value" ], result[key] & "")).toBeGT(0);
+				}
+				finally {
+					SecretProviderRemove(key, "sm");
+					SecretProviderRemove(key, "ps");
+				}
 			});
 
 		});
