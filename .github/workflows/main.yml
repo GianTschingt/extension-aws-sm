@@ -142,6 +142,54 @@ jobs:
                   "timeout": 5000
                 }
               },
+              "smNoCache": {
+                "class": "org.lucee.extension.aws.sm.AWSSecretManagerProvider",
+                "maven": "org.lucee:aws-sm:$VERSION",
+                "custom": {
+                  "accessKeyId": "test",
+                  "secretKey": "test",
+                  "region": "us-east-1",
+                  "endpoint": "http://localhost:4566",
+                  "jsonTraversal": true,
+                  "timeout": 0
+                }
+              },
+              "smCacheForever": {
+                "class": "org.lucee.extension.aws.sm.AWSSecretManagerProvider",
+                "maven": "org.lucee:aws-sm:$VERSION",
+                "custom": {
+                  "accessKeyId": "test",
+                  "secretKey": "test",
+                  "region": "us-east-1",
+                  "endpoint": "http://localhost:4566",
+                  "jsonTraversal": true,
+                  "timeout": -1
+                }
+              },
+              "psNoCache": {
+                "class": "org.lucee.extension.aws.ssm.AWSParameterStoreProvider",
+                "maven": "org.lucee:aws-sm:$VERSION",
+                "custom": {
+                  "accessKeyId": "test",
+                  "secretKey": "test",
+                  "region": "us-east-1",
+                  "endpoint": "http://localhost:4566",
+                  "jsonTraversal": true,
+                  "timeout": 0
+                }
+              },
+              "psCacheForever": {
+                "class": "org.lucee.extension.aws.ssm.AWSParameterStoreProvider",
+                "maven": "org.lucee:aws-sm:$VERSION",
+                "custom": {
+                  "accessKeyId": "test",
+                  "secretKey": "test",
+                  "region": "us-east-1",
+                  "endpoint": "http://localhost:4566",
+                  "jsonTraversal": true,
+                  "timeout": -1
+                }
+              },
               "ps": {
                 "class": "org.lucee.extension.aws.ssm.AWSParameterStoreProvider",
                 "maven": "org.lucee:aws-sm:$VERSION",
